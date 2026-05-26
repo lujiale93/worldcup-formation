@@ -1,4 +1,4 @@
-import { makeShirtSvg, getClubFlagUrl } from "./PlayerImage";
+import { makeClubBadgeSvg, getClubFlagUrl, getPlayerAvatarUrl, getRingColor } from "./PlayerImage";
 import { CLUB_HISTORY } from "../data/playerIds";
 import { RECENT_FORM } from "../data/recentForm";
 import { getTeamFlagUrl, getOpponentFlagUrl } from "../data/flags";
@@ -16,7 +16,8 @@ export default function PlayerModal({ player, teamColor, teamAccent = "#ffffff",
   const richForm = RECENT_FORM[player.id];
   const teamFlagUrl = getTeamFlagUrl(teamFlag);
   const clubFlagUrl = getClubFlagUrl(player.club);
-  const shirtSrc = makeShirtSvg(player.number, teamColor, teamAccent, 80, player.position);
+  const avatarUrl = getPlayerAvatarUrl(player.name);
+  const ring = getRingColor(player.position);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -25,7 +26,11 @@ export default function PlayerModal({ player, teamColor, teamAccent = "#ffffff",
 
         <div className="modal-header" style={{ background: `linear-gradient(135deg, ${teamColor}ee, ${teamColor}88)` }}>
           <div className="modal-avatar-wrap">
-            <img src={shirtSrc} alt={player.name} style={{ width: 76, height: 76 }} />
+            <div style={{width:76,height:76,borderRadius:"50%",border:`4px solid ${ring}`,overflow:"hidden",background:teamColor,flexShrink:0}}>
+              <img src={avatarUrl} alt={player.name}
+                style={{width:"100%",height:"100%",objectFit:"cover"}}
+                onError={e=>{e.target.style.display="none"; e.target.parentNode.innerHTML=`<span style="color:white;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;height:100%">${player.name.split(" ").map(w=>w[0]).slice(0,2).join("")}</span>`;}} />
+            </div>
             {teamFlagUrl && (
               <div className="modal-flag-badge">
                 <img src={teamFlagUrl} alt={teamFlag} style={{ width: 26, height: "auto", borderRadius: 3 }}

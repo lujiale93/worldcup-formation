@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { makeClubBadgeSvg, getRingColor } from "./PlayerImage";
 
 export default function Pitch({ formation, assignments, teamColor, teamAccent, onDrop, onRemove,
   onDragStart, onPlayerClick, draggedPlayer, onSwap, onMovePosition,
@@ -35,13 +36,6 @@ export default function Pitch({ formation, assignments, teamColor, teamAccent, o
 
   function handlePitchDrop(e) { e.preventDefault(); setDraggingPos(null); }
 
-  function handleSlotClick(posId, hasPlayer) {
-    // Mobile tap-to-place
-    if (onMobilePositionTap && pendingPlayer) {
-      onMobilePositionTap(posId);
-    }
-  }
-
   return (
     <div className="pitch-wrapper">
       <div className="pitch" ref={pitchRef} onDragOver={handlePitchDragOver} onDrop={handlePitchDrop}>
@@ -60,6 +54,9 @@ export default function Pitch({ formation, assignments, teamColor, teamAccent, o
           const isHov = hovered === pos.id;
           const isDraggingThis = draggingPos === pos.id;
           const isPendingTarget = pendingPlayer && !player;
+          const posRing = player ? getRingColor(player.position) : null;
+          const clubBadge = player ? makeClubBadgeSvg(player.club, 18) : null;
+
           return (
             <div key={pos.id}
               className={`position-slot ${isHov?"hovered":""} ${player?"filled":""} ${isDraggingThis?"dragging-from":""} ${isPendingTarget?"pending-target":""}`}
@@ -67,15 +64,24 @@ export default function Pitch({ formation, assignments, teamColor, teamAccent, o
               onDragOver={e => handleSlotDragOver(e, pos.id)}
               onDragLeave={() => setHovered(null)}
               onDrop={e => handleSlotDrop(e, pos.id)}
-              onClick={() => handleSlotClick(pos.id, !!player)}>
+              onClick={() => { if (onMobilePositionTap && pendingPlayer) onMobilePositionTap(pos.id); }}>
               {player ? (
                 <div className="player-token"
                   draggable
                   onDragStart={e => handleTokenDragStart(e, player, pos.id)}
-                  onClick={e => { e.stopPropagation(); onPlayerClick(player); }}
-                  style={{"--team-color": teamColor, "--team-accent": teamAccent}}>
-                  <div className="token-shirt" style={{background:teamColor, color:teamAccent}}>
-                    <div className="token-number">{player.number}</div>
+                  onClick={e => { e.stopPropagation(); onPlayerClick(player); }}>
+                  {/* Shirt circle with position ring */}
+                  <div className="token-shirt" style={{
+                    background: teamColor,
+                    boxShadow: `0 0 0 3px ${posRing}, 0 3px 10px rgba(0,0,0,0.6)`
+                  }}>
+                    <div className="token-number" style={{ color: teamAccent }}>{player.number}</div>
+                    {/* Club badge bottom-right */}
+                    {clubBadge && (
+                      <img src={clubBadge} alt={player.club}
+                        className="token-club-badge"
+                        title={player.club} />
+                    )}
                   </div>
                   <div className="token-name-tag">
                     <span className="token-name">{player.name.split(" ").slice(-1)[0]}</span>

@@ -295,3 +295,61 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .pos-legend { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 8px; border-bottom: 1px solid var(--border); background: var(--surface2); }
 .pos-legend-item { display: flex; align-items: center; gap: 3px; font-size: 0.52rem; color: var(--text-muted); }
 .pos-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* Club badge on pitch token */
+.token-shirt { position: relative; }
+.token-club-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.5);
+}
+
+/* Position legend */
+.pos-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.pos-legend-title {
+  font-size: 0.5rem;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.pos-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.58rem;
+  color: var(--text);
+  font-weight: 600;
+}
+.pos-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Position group label with dot */
+.position-group-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.pos-group-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

@@ -5,6 +5,7 @@ import Pitch from "./components/Pitch";
 import PlayerList from "./components/PlayerList";
 import Substitutes from "./components/Substitutes";
 import PlayerModal from "./components/PlayerModal";
+import PositionLegend from "./components/PositionLegend";
 import "./App.css";
 
 function OpponentFixture({ fixture, index, time = "", date = "" }) {
@@ -151,6 +152,7 @@ export default function App() {
         <button className="btn-autofill" onClick={autoFill}>⚡ Auto Fill</button>
         <button className="btn-clear" onClick={clearAll}>✕ Clear</button>
       </div>
+      <PositionLegend />
       <PlayerList players={team.players} assignedIds={assignedPlayerIds}
         onDragStart={setDraggedPlayer}
         onPlayerClick={(p) => handleMobilePlayerTap(p)}
@@ -259,7 +261,8 @@ export default function App() {
           {pendingPlayer && (
             <div className="mobile-squad-hint">Tap a position on the pitch above, or tap a player to change selection</div>
           )}
-          <PlayerList players={team.players} assignedIds={assignedPlayerIds}
+          <PositionLegend />
+      <PlayerList players={team.players} assignedIds={assignedPlayerIds}
             onDragStart={setDraggedPlayer}
             onPlayerClick={handleMobilePlayerTap}
             teamColor={team.color} teamAccent={team.accent}
