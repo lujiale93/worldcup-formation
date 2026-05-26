@@ -1,46 +1,19 @@
-import { useState, useEffect } from "react";
-import { getPlayerImageUrl, CLUB_HISTORY } from "../data/playerIds";
+import { CLUB_HISTORY } from "../data/playerIds";
 import { RECENT_FORM } from "../data/recentForm";
-import { FLAG_CDN_URLS } from "../data/flags";
+import { getTeamFlagUrl, getOpponentFlagUrl } from "../data/flags";
+import PlayerImage from "./PlayerImage";
 
-function PlayerImage({ playerId, name, teamColor }) {
-  const [imgSrc, setImgSrc] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
-  const initials = name.split(" ").map(w => w[0]).slice(0, 2).join("");
-
-  useEffect(() => {
-    const url = getPlayerImageUrl(playerId);
-    if (url) setImgSrc(url); else setError(true);
-  }, [playerId]);
-
-  if (error || !imgSrc) {
-    return <div className="modal-avatar fallback" style={{ background: teamColor }}>{initials}</div>;
-  }
-  return (
-    <div className="modal-avatar-img-wrap">
-      {!loaded && <div className="modal-avatar fallback" style={{ background: teamColor }}>{initials}</div>}
-      <img src={imgSrc} alt={name}
-        className={`modal-player-img ${loaded ? "loaded" : "hidden"}`}
-        onLoad={() => setLoaded(true)}
-        onError={() => { setError(true); }} />
-    </div>
-  );
+function FlagImg({ src, size = 20 }) {
+  if (!src) return null;
+  return <img src={src} alt="" style={{ width: size, height: "auto", borderRadius: 2, flexShrink: 0 }} onError={e => e.target.style.display='none'} />;
 }
 
-function TeamFlagImg({ teamId, size = 20 }) {
-  const [error, setError] = useState(false);
-  const url = FLAG_CDN_URLS[teamId];
-  if (error || !url) return null;
-  return <img src={url} alt={teamId} onError={() => setError(true)}
-    style={{ width: size, height: "auto", borderRadius: 2, verticalAlign: "middle", marginRight: 4 }} />;
-}
-
-export default function PlayerModal({ player, teamColor, teamFlag, teamName, fixtures, onClose }) {
+export default function PlayerModal({ player, teamColor, teamFlag, fixtures, onClose }) {
   const formColor = { W: "#22c55e", D: "#f59e0b", L: "#ef4444" };
   const winRate = player.form.filter(f => f === "W").length * 20;
   const clubHistory = CLUB_HISTORY[player.id];
   const richForm = RECENT_FORM[player.id];
+  const teamFlagUrl = getTeamFlagUrl(teamFlag);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -49,10 +22,12 @@ export default function PlayerModal({ player, teamColor, teamFlag, teamName, fix
 
         <div className="modal-header" style={{ background: `linear-gradient(135deg, ${teamColor}ee, ${teamColor}88)` }}>
           <div className="modal-avatar-wrap">
-            <PlayerImage playerId={player.id} name={player.name} teamColor={teamColor} />
-            <div className="modal-flag-img">
-              <TeamFlagImg teamId={teamFlag} size={22} />
-            </div>
+            <PlayerImage playerId={player.id} name={player.name} teamColor={teamColor} size={72} className="modal-img" />
+            {teamFlagUrl && (
+              <div className="modal-flag-badge">
+                <img src={teamFlagUrl} alt={teamFlag} style={{width:24,height:"auto",borderRadius:3}} onError={e=>e.target.style.display='none'} />
+              </div>
+            )}
           </div>
           <div className="modal-header-info">
             <div className="modal-number">#{player.number}</div>
@@ -72,7 +47,6 @@ export default function PlayerModal({ player, teamColor, teamFlag, teamName, fix
             <div className="stat-box"><div className="stat-val">{player.assists}</div><div className="stat-lbl">Assists</div></div>
           </div>
 
-          {/* Recent form with opponents */}
           <div className="modal-section">
             <div className="modal-section-title">Recent Form</div>
             {richForm ? (
@@ -90,53 +64,49 @@ export default function PlayerModal({ player, teamColor, teamFlag, teamName, fix
               </div>
             ) : (
               <div className="modal-form-row">
-                {player.form.map((r, i) => (
-                  <div key={i} className="form-result" style={{ background: formColor[r] }}>{r}</div>
-                ))}
+                {player.form.map((r,i) => <div key={i} className="form-result" style={{background:formColor[r]}}>{r}</div>)}
                 <div className="form-winrate">{winRate}% wins</div>
               </div>
             )}
           </div>
 
-          {/* Club history */}
           <div className="modal-section">
             <div className="modal-section-title">Club Career</div>
             {clubHistory ? (
               <div className="club-history-table">
-                <div className="club-history-header">
-                  <span>Club</span><span>Years</span><span>Apps</span><span>Goals</span>
-                </div>
+                <div className="club-history-header"><span>Club</span><span>Years</span><span>Apps</span><span>Goals</span></div>
                 {clubHistory.map((row, i) => (
-                  <div key={i} className={`club-history-row ${i === clubHistory.length - 1 ? "current" : ""}`}>
+                  <div key={i} className={`club-history-row ${i===clubHistory.length-1?"current":""}`}>
                     <span className="ch-club">{row.club}</span>
                     <span className="ch-years">{row.years}</span>
-                    <span className="ch-apps">{row.apps || "—"}</span>
-                    <span className="ch-goals">{row.goals || "—"}</span>
+                    <span className="ch-apps">{row.apps||"—"}</span>
+                    <span className="ch-goals">{row.goals||"—"}</span>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="modal-club-card">
-                <div className="modal-club-icon">🏟️</div>
-                <div>
-                  <div className="modal-club-name-big">{player.club}</div>
-                  <div className="modal-club-sub">Current Club · 2025/26</div>
-                </div>
+                <span>🏟️</span>
+                <div><div className="modal-club-name-big">{player.club}</div><div className="modal-club-sub">Current Club · 2025/26</div></div>
               </div>
             )}
           </div>
 
-          {/* Fixtures */}
           {fixtures && (
             <div className="modal-section">
               <div className="modal-section-title">World Cup 2026 Fixtures</div>
               <div className="modal-fixtures">
-                {fixtures.map((f, i) => (
-                  <div key={i} className="modal-fixture-row">
-                    <span className="fixture-md">MD{i + 1}</span>
-                    <span className="fixture-match">{f}</span>
-                  </div>
-                ))}
+                {fixtures.map((f, i) => {
+                  const opponent = f.replace(/^vs\s+/i,"");
+                  const flagUrl = getOpponentFlagUrl(f);
+                  return (
+                    <div key={i} className="modal-fixture-row">
+                      <span className="fixture-md">MD{i+1}</span>
+                      {flagUrl && <FlagImg src={flagUrl} size={22} />}
+                      <span className="fixture-match">{f}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
