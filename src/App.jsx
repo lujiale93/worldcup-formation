@@ -1,9 +1,21 @@
 import { useState } from "react";
 import { TEAMS, FORMATIONS, TEAM_GROUPS } from "./data/teams";
+import { FLAG_CDN_URLS } from "./data/flags";
 import Pitch from "./components/Pitch";
 import PlayerList from "./components/PlayerList";
+import Substitutes from "./components/Substitutes";
 import PlayerModal from "./components/PlayerModal";
 import "./App.css";
+
+function FlagImage({ teamId, teamName, fallbackEmoji, size = 40 }) {
+  const [error, setError] = useState(false);
+  const url = FLAG_CDN_URLS[teamId];
+  if (error || !url) return <span style={{ fontSize: size * 0.6 }}>{fallbackEmoji}</span>;
+  return (
+    <img src={url} alt={teamName} onError={() => setError(true)}
+      style={{ width: size, height: "auto", borderRadius: 4, objectFit: "cover", display: "block" }} />
+  );
+}
 
 export default function App() {
   const teamKeys = Object.keys(TEAMS);
@@ -18,8 +30,10 @@ export default function App() {
   const formationData = FORMATIONS[formation];
   const groupInfo = TEAM_GROUPS[selectedTeam];
   const assignedPlayerIds = new Set(Object.values(assignments).map(p => p.id));
+  const substitutes = team.players.filter(p => !assignedPlayerIds.has(p.id));
+  const starters = team.players.filter(p => assignedPlayerIds.has(p.id));
 
-  function handleTeamChange(teamId) { setSelectedTeam(teamId); setAssignments({}); setPositionOverrides({}); }
+  function handleTeamChange(t) { setSelectedTeam(t); setAssignments({}); setPositionOverrides({}); }
   function handleFormationChange(f) { setFormation(f); setAssignments({}); setPositionOverrides({}); }
 
   function handleDrop(positionId) {
@@ -76,8 +90,7 @@ export default function App() {
   }
 
   const mergedPositions = formationData.positions.map(pos => ({
-    ...pos,
-    ...(positionOverrides[pos.id] || {})
+    ...pos, ...(positionOverrides[pos.id] || {})
   }));
 
   return (
@@ -97,9 +110,9 @@ export default function App() {
               <div className="team-tabs">
                 {teamKeys.map(k => (
                   <button key={k} className={`team-tab ${selectedTeam===k?"active":""}`}
-                    style={selectedTeam===k?{background:TEAMS[k].color,color:TEAMS[k].accent}:{}}
+                    style={selectedTeam===k ? { borderColor: TEAMS[k].color, boxShadow: `0 0 10px ${TEAMS[k].color}66` } : {}}
                     onClick={() => handleTeamChange(k)} title={TEAMS[k].name}>
-                    {TEAMS[k].flag}
+                    <FlagImage teamId={k} teamName={TEAMS[k].name} fallbackEmoji={TEAMS[k].flag} size={28} />
                   </button>
                 ))}
               </div>
@@ -117,14 +130,15 @@ export default function App() {
       </header>
 
       <main className="main">
+        {/* Left sidebar - squad list */}
         <aside className="sidebar">
           <div className="sidebar-header">
-            <div className="team-badge" style={{background:team.color}}>
-              <span className="team-flag-big">{team.flag}</span>
+            <div className="team-badge-flag">
+              <FlagImage teamId={selectedTeam} teamName={team.name} fallbackEmoji={team.flag} size={44} />
             </div>
             <div className="team-info">
               <div className="team-name">{team.name}</div>
-              <div className="team-meta">Group {groupInfo.group} · {formation}</div>
+              <div className="team-meta">Group {groupInfo.group} · {formation} · {starters.length}/11 selected</div>
             </div>
           </div>
 
@@ -142,23 +156,36 @@ export default function App() {
             <button className="btn-autofill" onClick={autoFill}>⚡ Auto Fill</button>
             <button className="btn-clear" onClick={clearAll}>✕ Clear</button>
           </div>
+
           <PlayerList players={team.players} assignedIds={assignedPlayerIds}
             onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer} teamColor={team.color} />
         </aside>
 
+        {/* Centre - pitch */}
         <section className="pitch-section">
-          <div className="pitch-tip">💡 Drag players onto positions · Drag tokens to reposition · Click token to swap</div>
-          <Pitch formation={{...formationData, positions: mergedPositions}}
+          <div className="pitch-tip">💡 Drag players onto pitch · Drag tokens to reposition · Drop onto another to swap</div>
+          <Pitch
+            formation={{ ...formationData, positions: mergedPositions }}
             assignments={assignments} teamColor={team.color} teamAccent={team.accent}
             onDrop={handleDrop} onRemove={removeFromPitch}
             onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer}
             draggedPlayer={draggedPlayer} onSwap={swapPlayers}
             onMovePosition={updatePositionXY} />
         </section>
+
+        {/* Right - substitutes bench */}
+        <aside className="bench-panel">
+          <Substitutes
+            players={substitutes} teamColor={team.color}
+            onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer} />
+        </aside>
       </main>
 
-      {modalPlayer && <PlayerModal player={modalPlayer} teamColor={TEAMS[selectedTeam].color}
-        teamFlag={team.flag} fixtures={groupInfo.fixtures} onClose={() => setModalPlayer(null)} />}
+      {modalPlayer && (
+        <PlayerModal player={modalPlayer} teamColor={team.color}
+          teamFlag={selectedTeam} teamName={team.name}
+          fixtures={groupInfo.fixtures} onClose={() => setModalPlayer(null)} />
+      )}
     </div>
   );
 }

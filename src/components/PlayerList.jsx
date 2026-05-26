@@ -1,8 +1,28 @@
-function PlayerAvatar({ player, teamColor, size = 36 }) {
+import { useState } from "react";
+import { getPlayerImageUrl } from "../data/playerIds";
+
+function PlayerAvatar({ player, teamColor, size = 34 }) {
+  const [error, setError] = useState(false);
+  const imgUrl = getPlayerImageUrl(player.id);
   const initials = player.name.split(" ").map(w => w[0]).slice(0, 2).join("");
+
+  if (!imgUrl || error) {
+    return (
+      <div className="player-avatar" style={{ width: size, height: size, background: teamColor, fontSize: size * 0.28 }}>
+        {initials}
+      </div>
+    );
+  }
+
   return (
-    <div className="player-avatar" style={{ width: size, height: size, background: teamColor }}>
-      <span>{initials}</span>
+    <div className="player-avatar-wrap" style={{ width: size, height: size }}>
+      <img
+        src={imgUrl}
+        alt={player.name}
+        className="player-avatar-img"
+        style={{ width: size, height: size }}
+        onError={() => setError(true)}
+      />
     </div>
   );
 }
@@ -17,7 +37,7 @@ export default function PlayerList({ players, assignedIds, onDragStart, onPlayer
   return (
     <div className="player-list">
       <div className="player-list-header">SQUAD ({players.length} players)</div>
-      {Object.entries(grouped).filter(([,v]) => v.length > 0).map(([pos, pls]) => (
+      {Object.entries(grouped).filter(([, v]) => v.length > 0).map(([pos, pls]) => (
         <div key={pos} className="position-group">
           <div className="position-group-label">{pos}</div>
           {pls.map(p => (
@@ -26,7 +46,7 @@ export default function PlayerList({ players, assignedIds, onDragStart, onPlayer
               draggable={!assignedIds.has(p.id)}
               onDragStart={() => !assignedIds.has(p.id) && onDragStart(p)}
               onClick={() => onPlayerClick(p)}>
-              <PlayerAvatar player={p} teamColor={assignedIds.has(p.id) ? "#555" : teamColor} size={34} />
+              <PlayerAvatar player={p} teamColor={assignedIds.has(p.id) ? "#444" : teamColor} size={34} />
               <div className="player-card-info">
                 <div className="player-card-name">{p.name}</div>
                 <div className="player-card-meta">
