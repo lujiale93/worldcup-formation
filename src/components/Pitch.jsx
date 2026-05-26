@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
 
-export default function Pitch({ formation, assignments, teamColor, teamAccent, onDrop, onRemove, onDragStart, onPlayerClick, draggedPlayer, onSwap, onMovePosition }) {
+export default function Pitch({ formation, assignments, teamColor, teamAccent, onDrop, onRemove,
+  onDragStart, onPlayerClick, draggedPlayer, onSwap, onMovePosition,
+  onMobilePositionTap, pendingPlayer }) {
+
   const [hovered, setHovered] = useState(null);
   const [draggingPos, setDraggingPos] = useState(null);
   const pitchRef = useRef(null);
@@ -11,9 +14,7 @@ export default function Pitch({ formation, assignments, teamColor, teamAccent, o
     if (draggingPos) {
       if (draggingPos !== posId) onSwap(draggingPos, posId);
       setDraggingPos(null);
-    } else {
-      onDrop(posId);
-    }
+    } else { onDrop(posId); }
   }
 
   function handleTokenDragStart(e, player, posId) {
@@ -32,19 +33,18 @@ export default function Pitch({ formation, assignments, teamColor, teamAccent, o
     }
   }
 
-  function handlePitchDrop(e) {
-    e.preventDefault();
-    setDraggingPos(null);
-  }
+  function handlePitchDrop(e) { e.preventDefault(); setDraggingPos(null); }
 
-  function getInitials(name) {
-    return name.split(" ").map(w => w[0]).slice(0, 2).join("");
+  function handleSlotClick(posId, hasPlayer) {
+    // Mobile tap-to-place
+    if (onMobilePositionTap && pendingPlayer) {
+      onMobilePositionTap(posId);
+    }
   }
 
   return (
     <div className="pitch-wrapper">
       <div className="pitch" ref={pitchRef} onDragOver={handlePitchDragOver} onDrop={handlePitchDrop}>
-        {/* Field markings */}
         <div className="field-center-circle" />
         <div className="field-center-dot" />
         <div className="field-halfway" />
@@ -59,28 +59,29 @@ export default function Pitch({ formation, assignments, teamColor, teamAccent, o
           const player = assignments[pos.id];
           const isHov = hovered === pos.id;
           const isDraggingThis = draggingPos === pos.id;
+          const isPendingTarget = pendingPlayer && !player;
           return (
             <div key={pos.id}
-              className={`position-slot ${isHov?"hovered":""} ${player?"filled":""} ${isDraggingThis?"dragging-from":""}`}
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+              className={`position-slot ${isHov?"hovered":""} ${player?"filled":""} ${isDraggingThis?"dragging-from":""} ${isPendingTarget?"pending-target":""}`}
+              style={{ left:`${pos.x}%`, top:`${pos.y}%` }}
               onDragOver={e => handleSlotDragOver(e, pos.id)}
               onDragLeave={() => setHovered(null)}
-              onDrop={e => handleSlotDrop(e, pos.id)}>
+              onDrop={e => handleSlotDrop(e, pos.id)}
+              onClick={() => handleSlotClick(pos.id, !!player)}>
               {player ? (
                 <div className="player-token"
                   draggable
                   onDragStart={e => handleTokenDragStart(e, player, pos.id)}
-                  onClick={() => onPlayerClick(player)}
-                  style={{ "--team-color": teamColor, "--team-accent": teamAccent }}
-                  title={`${player.name} · Drag to move`}>
-                  <div className="token-shirt" style={{background: teamColor, color: teamAccent}}>
+                  onClick={e => { e.stopPropagation(); onPlayerClick(player); }}
+                  style={{"--team-color": teamColor, "--team-accent": teamAccent}}>
+                  <div className="token-shirt" style={{background:teamColor, color:teamAccent}}>
                     <div className="token-number">{player.number}</div>
                   </div>
                   <div className="token-name-tag">
                     <span className="token-name">{player.name.split(" ").slice(-1)[0]}</span>
                     <span className="token-pos-badge">{pos.label}</span>
                   </div>
-                  <button className="token-remove" onClick={e => { e.stopPropagation(); onRemove(pos.id); }}>×</button>
+                  <button className="token-remove" onClick={e=>{e.stopPropagation();onRemove(pos.id);}}>×</button>
                 </div>
               ) : (
                 <div className="empty-slot">

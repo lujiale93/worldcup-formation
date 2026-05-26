@@ -7,20 +7,17 @@ import Substitutes from "./components/Substitutes";
 import PlayerModal from "./components/PlayerModal";
 import "./App.css";
 
-function FlagImg({ src, alt, size = 32, radius = 4 }) {
-  const [err, setErr] = useState(false);
-  if (!src || err) return null;
-  return <img src={src} alt={alt} onError={() => setErr(true)}
-    style={{ width: size, height: "auto", maxHeight: size * 0.75, borderRadius: radius, display: "block", objectFit: "cover" }} />;
-}
-
-function OpponentFixture({ fixture, index }) {
+function OpponentFixture({ fixture, index, time = "", date = "" }) {
   const flagUrl = getOpponentFlagUrl(fixture);
   return (
     <div className="fixture-row">
       <span className="fixture-num">MD{index + 1}</span>
-      {flagUrl && <FlagImg src={flagUrl} alt={fixture} size={22} radius={3} />}
-      <span className="fixture-opp">{fixture}</span>
+      {flagUrl && <img src={flagUrl} alt={fixture} onError={e=>e.target.style.display="none"}
+        style={{width:22,height:"auto",borderRadius:3,flexShrink:0}} />}
+      <div className="fixture-info">
+        <span className="fixture-opp">{fixture}</span>
+        {time && <span className="fixture-time">{date} {time}</span>}
+      </div>
     </div>
   );
 }
@@ -33,8 +30,8 @@ export default function App() {
   const [draggedPlayer, setDraggedPlayer] = useState(null);
   const [modalPlayer, setModalPlayer] = useState(null);
   const [positionOverrides, setPositionOverrides] = useState({});
-  // Mobile tab state: "pitch" | "squad" | "bench"
-  const [mobileTab, setMobileTab] = useState("pitch");
+  // Mobile: pending player to place, and which position is being picked
+  const [pendingPlayer, setPendingPlayer] = useState(null);
 
   const team = TEAMS[selectedTeam];
   const formationData = FORMATIONS[formation];
@@ -43,18 +40,45 @@ export default function App() {
   const substitutes = team.players.filter(p => !assignedPlayerIds.has(p.id));
   const starters = team.players.filter(p => assignedPlayerIds.has(p.id));
 
-  function handleTeamChange(t) { setSelectedTeam(t); setAssignments({}); setPositionOverrides({}); }
-  function handleFormationChange(f) { setFormation(f); setAssignments({}); setPositionOverrides({}); }
+  function handleTeamChange(t) { setSelectedTeam(t); setAssignments({}); setPositionOverrides({}); setPendingPlayer(null); }
+  function handleFormationChange(f) { setFormation(f); setAssignments({}); setPositionOverrides({}); setPendingPlayer(null); }
 
+  // Desktop drag-drop
   function handleDrop(positionId) {
     if (!draggedPlayer) return;
+    assignPlayerToPosition(draggedPlayer, positionId);
+    setDraggedPlayer(null);
+  }
+
+  // Mobile tap-to-place
+  function handleMobilePlayerTap(player) {
+    if (assignedPlayerIds.has(player.id)) {
+      // Remove from pitch
+      setAssignments(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(k => { if (next[k]?.id === player.id) delete next[k]; });
+        return next;
+      });
+      setPendingPlayer(null);
+    } else {
+      // Select player to place
+      setPendingPlayer(player);
+    }
+  }
+
+  function handleMobilePositionTap(positionId) {
+    if (!pendingPlayer) return;
+    assignPlayerToPosition(pendingPlayer, positionId);
+    setPendingPlayer(null);
+  }
+
+  function assignPlayerToPosition(player, positionId) {
     setAssignments(prev => {
       const next = { ...prev };
-      Object.keys(next).forEach(k => { if (next[k]?.id === draggedPlayer.id) delete next[k]; });
-      next[positionId] = draggedPlayer;
+      Object.keys(next).forEach(k => { if (next[k]?.id === player.id) delete next[k]; });
+      next[positionId] = player;
       return next;
     });
-    setDraggedPlayer(null);
   }
 
   function swapPlayers(fromPosId, toPosId) {
@@ -77,7 +101,7 @@ export default function App() {
     setAssignments(prev => { const n = { ...prev }; delete n[positionId]; return n; });
   }
 
-  function clearAll() { setAssignments({}); setPositionOverrides({}); }
+  function clearAll() { setAssignments({}); setPositionOverrides({}); setPendingPlayer(null); }
 
   function autoFill() {
     const players = [...team.players];
@@ -97,6 +121,7 @@ export default function App() {
       if (chosen) { posMap[pos.id] = chosen; used.add(chosen.id); }
     });
     setAssignments(posMap);
+    setPendingPlayer(null);
   }
 
   const mergedPositions = formationData.positions.map(pos => ({
@@ -105,20 +130,37 @@ export default function App() {
 
   const teamFlagUrl = getTeamFlagUrl(selectedTeam);
 
-  const sharedProps = {
-    assignments, assignedPlayerIds, substitutes, starters,
-    team, groupInfo, formation, teamFlagUrl,
-    mergedPositions, formationData,
-    draggedPlayer, modalPlayer,
-    handleTeamChange, handleFormationChange,
-    handleDrop, swapPlayers, updatePositionXY,
-    removeFromPitch, clearAll, autoFill,
-    setDraggedPlayer, setModalPlayer,
-  };
+  const sidebarContent = (
+    <>
+      <div className="sidebar-header">
+        <div className="sidebar-flag-wrap">
+          {teamFlagUrl
+            ? <img src={teamFlagUrl} alt={team.name} style={{width:"100%",height:"auto",borderRadius:5}} onError={e=>e.target.style.display='none'} />
+            : <span style={{fontSize:"1.8rem"}}>{team.flag}</span>}
+        </div>
+        <div className="team-info">
+          <div className="team-name">{team.name}</div>
+          <div className="team-meta">Group {groupInfo.group} · {formation} · {starters.length}/11</div>
+        </div>
+      </div>
+      <div className="fixtures-bar">
+        <div className="fixtures-title">GROUP STAGE FIXTURES</div>
+        {groupInfo.fixtures.map((f,i) => <OpponentFixture key={i} fixture={typeof f === "object" ? f.opponent : f} index={i} time={typeof f === "object" ? f.time : ""} date={typeof f === "object" ? f.date : ""} />)}
+      </div>
+      <div className="sidebar-actions">
+        <button className="btn-autofill" onClick={autoFill}>⚡ Auto Fill</button>
+        <button className="btn-clear" onClick={clearAll}>✕ Clear</button>
+      </div>
+      <PlayerList players={team.players} assignedIds={assignedPlayerIds}
+        onDragStart={setDraggedPlayer}
+        onPlayerClick={(p) => handleMobilePlayerTap(p)}
+        teamColor={team.color} teamAccent={team.accent}
+        pendingPlayer={pendingPlayer} />
+    </>
+  );
 
   return (
     <div className="app">
-      {/* ── HEADER ── */}
       <header className="header">
         <div className="header-inner">
           <div className="logo">
@@ -136,7 +178,7 @@ export default function App() {
                   const flagUrl = getTeamFlagUrl(k);
                   return (
                     <button key={k} className={`team-tab ${selectedTeam===k?"active":""}`}
-                      style={selectedTeam===k ? { borderColor: TEAMS[k].color, boxShadow: `0 0 10px ${TEAMS[k].color}55` } : {}}
+                      style={selectedTeam===k?{borderColor:TEAMS[k].color,boxShadow:`0 0 10px ${TEAMS[k].color}55`}:{}}
                       onClick={() => handleTeamChange(k)} title={TEAMS[k].name}>
                       {flagUrl
                         ? <img src={flagUrl} alt={TEAMS[k].name} onError={e=>e.target.style.display='none'} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:2}} />
@@ -158,138 +200,102 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── DESKTOP LAYOUT ── */}
+      {/* DESKTOP */}
       <main className="main desktop-only">
-        <aside className="sidebar">
-          <SidebarContent team={team} groupInfo={groupInfo} formation={formation} starters={starters}
-            teamFlagUrl={teamFlagUrl} assignedPlayerIds={assignedPlayerIds}
-            onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer}
-            onAutoFill={autoFill} onClear={clearAll} />
-        </aside>
+        <aside className="sidebar">{sidebarContent}</aside>
         <section className="pitch-section">
-          <div className="pitch-tip">💡 Drag squad → pitch · Drag tokens to move · Drop on token to swap</div>
+          <div className="pitch-tip">💡 Drag squad → pitch · Drag tokens to reposition · Drop on token to swap</div>
           <div className="pitch-and-bench">
-            <Pitch formation={{...formationData, positions: mergedPositions}}
+            <Pitch formation={{...formationData,positions:mergedPositions}}
               assignments={assignments} teamColor={team.color} teamAccent={team.accent}
               onDrop={handleDrop} onRemove={removeFromPitch}
               onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer}
               draggedPlayer={draggedPlayer} onSwap={swapPlayers}
               onMovePosition={updatePositionXY} />
-            <Substitutes players={substitutes} teamColor={team.color}
+            <Substitutes players={substitutes} teamColor={team.color} teamAccent={team.accent}
               onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer} />
           </div>
         </section>
       </main>
 
-      {/* ── MOBILE LAYOUT ── */}
-      <div className="mobile-only mobile-layout">
-        {/* Mobile tab bar */}
-        <div className="mobile-tabs">
-          <button className={`mobile-tab ${mobileTab==="squad"?"active":""}`} onClick={() => setMobileTab("squad")}>
-            👥 Squad
-          </button>
-          <button className={`mobile-tab ${mobileTab==="pitch"?"active":""}`} onClick={() => setMobileTab("pitch")}>
-            ⚽ Pitch
-          </button>
-          <button className={`mobile-tab ${mobileTab==="bench"?"active":""}`} onClick={() => setMobileTab("bench")}>
-            🪑 Bench ({substitutes.length})
-          </button>
+      {/* MOBILE — single scrollable page with sections */}
+      <div className="mobile-only mobile-page">
+        {/* Team + formation bar */}
+        <div className="mobile-controls">
+          <div className="mobile-formation-row">
+            {Object.keys(FORMATIONS).map(f => (
+              <button key={f} className={`formation-tab ${formation===f?"active":""}`} onClick={() => handleFormationChange(f)}>{f}</button>
+            ))}
+          </div>
+          <div className="mobile-actions-row">
+            <button className="btn-autofill" onClick={autoFill}>⚡ Auto Fill</button>
+            <button className="btn-clear" onClick={clearAll}>✕ Clear</button>
+          </div>
         </div>
 
-        {/* Mobile content */}
-        <div className="mobile-content">
-          {mobileTab === "squad" && (
-            <div className="mobile-squad-panel">
-              <SidebarContent team={team} groupInfo={groupInfo} formation={formation} starters={starters}
-                teamFlagUrl={teamFlagUrl} assignedPlayerIds={assignedPlayerIds}
-                onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer}
-                onAutoFill={autoFill} onClear={clearAll} />
-            </div>
-          )}
+        {/* Pending player banner */}
+        {pendingPlayer && (
+          <div className="mobile-pending-banner">
+            <span>Tap a position to place <strong>{pendingPlayer.name.split(" ").slice(-1)[0]}</strong></span>
+            <button onClick={() => setPendingPlayer(null)}>✕</button>
+          </div>
+        )}
 
-          {mobileTab === "pitch" && (
-            <div className="mobile-pitch-panel">
-              <div className="mobile-formation-row">
-                {Object.keys(FORMATIONS).map(f => (
-                  <button key={f} className={`formation-tab ${formation===f?"active":""}`} onClick={() => handleFormationChange(f)}>{f}</button>
-                ))}
-              </div>
-              <div className="mobile-pitch-wrap">
-                <Pitch formation={{...formationData, positions: mergedPositions}}
-                  assignments={assignments} teamColor={team.color} teamAccent={team.accent}
-                  onDrop={handleDrop} onRemove={removeFromPitch}
-                  onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer}
-                  draggedPlayer={draggedPlayer} onSwap={swapPlayers}
-                  onMovePosition={updatePositionXY} />
-              </div>
-              <div className="mobile-pitch-actions">
-                <button className="btn-autofill" onClick={autoFill}>⚡ Auto Fill</button>
-                <button className="btn-clear" onClick={clearAll}>✕ Clear</button>
-              </div>
-            </div>
-          )}
-
-          {mobileTab === "bench" && (
-            <div className="mobile-bench-panel">
-              <div className="mobile-bench-grid">
-                {substitutes.map(p => (
-                  <div key={p.id} className="mobile-bench-card" onClick={() => setModalPlayer(p)}>
-                    <div className="mobile-bench-num" style={{background: team.color}}>#{p.number}</div>
-                    <div className="mobile-bench-name">{p.name.split(" ").slice(-1)[0]}</div>
-                    <div className="mobile-bench-pos" style={{background: team.color}}>{p.position}</div>
-                    <div className="mobile-bench-age">Age {p.age}</div>
-                  </div>
-                ))}
-                {substitutes.length === 0 && <div className="bench-empty">All players on pitch ✓</div>}
-              </div>
-            </div>
-          )}
+        {/* PITCH — full width */}
+        <div className="mobile-pitch-section">
+          <Pitch formation={{...formationData,positions:mergedPositions}}
+            assignments={assignments} teamColor={team.color} teamAccent={team.accent}
+            onDrop={handleDrop} onRemove={removeFromPitch}
+            onDragStart={setDraggedPlayer} onPlayerClick={setModalPlayer}
+            draggedPlayer={draggedPlayer} onSwap={swapPlayers}
+            onMovePosition={updatePositionXY}
+            onMobilePositionTap={handleMobilePositionTap}
+            pendingPlayer={pendingPlayer} />
         </div>
+
+        {/* SQUAD LIST */}
+        <div className="mobile-section-header">👥 SQUAD</div>
+        <div className="mobile-squad-section">
+          {pendingPlayer && (
+            <div className="mobile-squad-hint">Tap a position on the pitch above, or tap a player to change selection</div>
+          )}
+          <PlayerList players={team.players} assignedIds={assignedPlayerIds}
+            onDragStart={setDraggedPlayer}
+            onPlayerClick={handleMobilePlayerTap}
+            teamColor={team.color} teamAccent={team.accent}
+            pendingPlayer={pendingPlayer} />
+        </div>
+
+        {/* BENCH */}
+        <div className="mobile-section-header">🪑 BENCH ({substitutes.length})</div>
+        <div className="mobile-bench-section">
+          <div className="mobile-bench-grid">
+            {substitutes.map(p => (
+              <div key={p.id} className={`mobile-bench-card ${pendingPlayer?.id===p.id?"pending":""}`}
+                onClick={() => handleMobilePlayerTap(p)}>
+                <div className="mobile-bench-num" style={{background:team.color,color:team.accent}}>#{p.number}</div>
+                <div className="mobile-bench-name">{p.name.split(" ").slice(-1)[0]}</div>
+                <div className="mobile-bench-pos" style={{background:team.color}}>{p.position}</div>
+                <div className="mobile-bench-age">Age {p.age}</div>
+              </div>
+            ))}
+            {substitutes.length === 0 && <div className="bench-empty" style={{gridColumn:"1/-1"}}>All players on pitch ✓</div>}
+          </div>
+        </div>
+
+        {/* FIXTURES */}
+        <div className="mobile-section-header">📅 GROUP {groupInfo.group} FIXTURES</div>
+        <div className="mobile-fixtures-section">
+          {groupInfo.fixtures.map((f,i) => <OpponentFixture key={i} fixture={typeof f === "object" ? f.opponent : f} index={i} time={typeof f === "object" ? f.time : ""} date={typeof f === "object" ? f.date : ""} />)}
+        </div>
+        <div style={{height:20}} />
       </div>
 
       {modalPlayer && (
-        <PlayerModal player={modalPlayer} teamColor={team.color}
+        <PlayerModal player={modalPlayer} teamColor={team.color} teamAccent={team.accent}
           teamFlag={selectedTeam} teamName={team.name}
           fixtures={groupInfo.fixtures} onClose={() => setModalPlayer(null)} />
       )}
     </div>
-  );
-}
-
-// Shared sidebar content component
-function SidebarContent({ team, groupInfo, formation, starters, teamFlagUrl, assignedPlayerIds, onDragStart, onPlayerClick, onAutoFill, onClear }) {
-  return (
-    <>
-      <div className="sidebar-header">
-        <div className="sidebar-flag-wrap">
-          {teamFlagUrl
-            ? <img src={teamFlagUrl} alt={team.name} style={{width:"100%",height:"auto",borderRadius:5,objectFit:"cover"}} />
-            : <span style={{fontSize:"1.8rem"}}>{team.flag}</span>}
-        </div>
-        <div className="team-info">
-          <div className="team-name">{team.name}</div>
-          <div className="team-meta">Group {groupInfo.group} · {formation} · {starters.length}/11</div>
-        </div>
-      </div>
-      <div className="fixtures-bar">
-        <div className="fixtures-title">GROUP STAGE FIXTURES</div>
-        {groupInfo.fixtures.map((f, i) => {
-          const flagUrl = getOpponentFlagUrl(f);
-          return (
-            <div key={i} className="fixture-row">
-              <span className="fixture-num">MD{i+1}</span>
-              {flagUrl && <img src={flagUrl} alt={f} onError={e=>e.target.style.display='none'} style={{width:22,height:"auto",borderRadius:3,flexShrink:0}} />}
-              <span className="fixture-opp">{f}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="sidebar-actions">
-        <button className="btn-autofill" onClick={onAutoFill}>⚡ Auto Fill</button>
-        <button className="btn-clear" onClick={onClear}>✕ Clear</button>
-      </div>
-      <PlayerList players={team.players} assignedIds={assignedPlayerIds}
-        onDragStart={onDragStart} onPlayerClick={onPlayerClick} teamColor={team.color} />
-    </>
   );
 }
