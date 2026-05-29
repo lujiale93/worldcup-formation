@@ -17,3 +17,6 @@ npm run dev
 
 ## Deploy to GitHub Pages
 Push to `main` branch — GitHub Actions deploys automatically.
+
+## URL 
+https://lujiale93.github.io/WorldCup-Formation/
